@@ -58,15 +58,12 @@ SETTINGS: Settings menu to adjust resolution, toggle fullscreen, and toggle bord
     launch.json
     settings.json
     tasks.json
-enemy.exe
 lib/
     libgcc_s_dw2-1.dll
     libstdc++-6.dll
 main.code-workspace
 main.exe
 Makefile
-player.exe
-projectile.exe
 res/
     level_start.mp3
     player_sprite.jpg
