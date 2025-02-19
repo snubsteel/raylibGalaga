@@ -17,12 +17,12 @@ void SpawnEnemies(std::vector<Enemy>& enemies, int level, int wave) {
     std::cout << "Spawned " << numEnemies << " enemies for level " << level << ", wave " << wave << "." << std::endl;
 }
 
-
+// Disable Raylib’s default ESC exiting behavior
+SetExitKey(KEY_NULL);  // Prevents ESC from closing the game automatically
 
 int main()
 {
-    // Change fixed virtual resolution to 1280x720
-    const int virtualWidth = 1920;
+    // Change fixed virtual resolonst int virtualWidth = 1920;
     const int virtualHeight = 1080;
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
