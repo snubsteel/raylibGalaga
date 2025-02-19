@@ -15,7 +15,7 @@ raylibGalaga is a simple 2D space shooter game built using the raylib library. T
 ### Clone the Repository
 
 ```sh
-git clone https://github.com/snubsteel/raylibGalaga
+git clone https://github.com/snubsteel/raylibGalaga.git
 cd raylibGalaga
 
 #Windows
