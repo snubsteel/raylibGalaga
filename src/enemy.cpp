@@ -58,7 +58,8 @@ void Enemy::UpdateMovementPattern() {
 }
 
 void Enemy::Draw() const {
-    DrawRectangle(static_cast<int>(x) - 20, static_cast<int>(y) - 20, 40, 40, color);
+    // Draw enemy with half size: 20x20 instead of 40x40
+    DrawRectangle(static_cast<int>(x) - 10, static_cast<int>(y) - 10, 20, 20, color);
     for (const auto& projectile : projectiles) {
         projectile.Draw();
     }
@@ -69,7 +70,8 @@ bool Enemy::IsOffScreen(int screenHeight) const {
 }
 
 Rectangle Enemy::GetBounds() const {
-    return { x - 20, y - 20, 40, 40 };
+    // Update bounds to match half size enemy sprite
+    return { x - 10, y - 10, 20, 20 };
 }
 
 void Enemy::Shoot() {

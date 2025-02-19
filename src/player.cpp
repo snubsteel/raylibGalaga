@@ -1,8 +1,9 @@
 #include "Player.h"
+#include <cmath> // Provides fmaxf and fminf
 
 Player::Player(float posXPercent, float posYPercent, int width, int height)
     : posXPercent(posXPercent), posYPercent(posYPercent), width(width), height(height), lives(3), exploding(false), explosionTime(0.0f), shootFromLeft(true) {
-    movementSpeed = 15.0f;
+    movementSpeed = 7.5f;
     shootCooldown = 0.2f;
     timeSinceLastShot = 0.0f;
 }
@@ -10,9 +11,6 @@ Player::Player(float posXPercent, float posYPercent, int width, int height)
 void Player::Update(int screenWidth, int screenHeight) {
     if (exploding) {
         explosionTime += GetFrameTime();
-        if (explosionTime >= 3.0f) {
-            Respawn();
-        }
         return;
     }
 
@@ -22,8 +20,16 @@ void Player::Update(int screenWidth, int screenHeight) {
     if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) posXPercent += movementSpeed / screenWidth;
     if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) posXPercent -= movementSpeed / screenWidth;
 
-    if (posXPercent < 0.0f) posXPercent = 0.0f;
-    if (posXPercent > 1.0f) posXPercent = 1.0f;
+    if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) posYPercent -= movementSpeed / screenHeight;
+    if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) posYPercent += movementSpeed / screenHeight;
+
+    // Clamp player's horizontal position so the sprite doesn't go off-screen.
+    float leftBound = (width / 2.0f) / screenWidth;
+    float rightBound = 1.0f - (width / 2.0f) / screenWidth;
+    posXPercent = fmaxf(leftBound, fminf(posXPercent, rightBound));
+
+    if (posYPercent < 0.0f) posYPercent = 0.0f;
+    if (posYPercent > 1.0f) posYPercent = 1.0f;
 
     // Update the time since the last shot
     timeSinceLastShot += GetFrameTime();
@@ -48,18 +54,26 @@ void Player::Draw(Texture2D playerTexture) const {
         DrawText("BOOM!", x - 20, y - 10, 20, RED);
         return;
     }
-
-    // Scale the sprite to 60% of its original size
-    DrawTextureEx(playerTexture, { static_cast<float>(x - width / 2), static_cast<float>(y - height / 2) }, 0.0f, 0.6f, WHITE);
+    // Scale factor: original scale 0.6 halved -> 0.3
+    DrawTextureEx(playerTexture, { static_cast<float>(x - width/2), static_cast<float>(y - height/2) }, 0.0f, 0.3f, WHITE);
     for (const auto& projectile : projectiles) {
         projectile.Draw();
     }
 }
 
 void Player::Shoot() {
-    float offset = shootFromLeft ? -width / 2.5f : width / 18;
-    projectiles.emplace_back(x + offset, y - height / 2 + 10, 10.0f); // Adjust the y position to be near the cannons
-    shootFromLeft = !shootFromLeft; // Alternate the shooting side
+    float projectileY = y - (height * 0.5f);
+    // Calculate the left and right cannon positions relative to the player's center
+    float leftCannonX = x - (width * 0.5f);  
+    float rightCannonX = x + (width * 0.01f) - 60; 
+
+    // Alternate shooting between left and right cannons
+    if (shootFromLeft) {
+        projectiles.emplace_back(leftCannonX, projectileY, 10.0f * 0.75f);
+    } else {
+        projectiles.emplace_back(rightCannonX, projectileY, 10.0f * 0.75f);
+    }
+    shootFromLeft = !shootFromLeft; // Toggle the flag
 }
 
 std::vector<Projectile>& Player::GetProjectiles() {
@@ -92,13 +106,17 @@ int Player::GetY() const {
 }
 
 int Player::GetWidth() const {
-    return width;
+    return static_cast<int>(width * 0.5f); // use scaled width
 }
 
 int Player::GetHeight() const {
-    return height;
+    return static_cast<int>(height * 0.5f); // use scaled height
 }
 
 bool Player::IsExploding() const {
     return exploding;
+}
+
+float Player::GetExplosionTime() const {
+    return explosionTime;
 }

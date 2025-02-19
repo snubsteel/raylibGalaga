@@ -19,6 +19,7 @@ public:
     int GetWidth() const;
     int GetHeight() const;
     bool IsExploding() const;
+    float GetExplosionTime() const; // New accessor for explosion time
 
 private:
     float posXPercent;
