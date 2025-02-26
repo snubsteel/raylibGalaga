@@ -3,13 +3,15 @@
 
 #include <raylib.h>
 
-class Projectile {
+class Projectile
+{
 public:
-    Projectile(float x, float y, float speed);
+    Projectile(float x, float y, float speed, bool isBomb = false);
     void Update();
     void Draw() const;
     Rectangle GetBounds() const;
     bool IsOffScreen(int screenHeight) const;
+    bool HasExploded() const;
 
 private:
     float x;
@@ -17,6 +19,9 @@ private:
     float speed;
     float width;
     float height;
+    bool isBomb;
+    bool exploded;
+    double explosionTime;
 };
 
 #endif // PROJECTILE_H
