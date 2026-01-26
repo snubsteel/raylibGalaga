@@ -1,4 +1,4 @@
-#include "Projectile.h"
+#include "projectile.h"
 
 Projectile::Projectile(float x, float y, float speed, bool isBomb)
     : x(x), y(y), speed(speed), width(8), height(10), isBomb(isBomb), exploded(false) {}

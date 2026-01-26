@@ -1,8 +1,8 @@
 #include <raylib.h>
 #include <cmath> // For fminf() and fmaxf()
-#include "Player.h"
-#include "Star.h"
-#include "Enemy.h"
+#include "player.h"
+#include "star.h"
+#include "enemy.h"
 #include <vector>
 #include <iostream>
 #include <string>

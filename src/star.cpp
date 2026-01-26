@@ -1,4 +1,4 @@
-#include "Star.h"
+#include "star.h"
 
 Star::Star(int screenWidth, int screenHeight) {
     x = static_cast<float>(GetRandomValue(0, screenWidth));
