@@ -1,4 +1,4 @@
-#include "Enemy.h"
+#include "enemy.h"
 #include <cmath> // Include cmath for sin and cos functions
 
 Enemy::Enemy(float x, float y, float speed, Color color)

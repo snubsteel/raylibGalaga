@@ -1,4 +1,4 @@
-#include "Player.h"
+#include "player.h"
 #include <cmath> // Provides fmaxf and fminf
 
 Player::Player(float posXPercent, float posYPercent, int width, int height)

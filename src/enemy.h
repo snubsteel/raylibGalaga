@@ -3,7 +3,7 @@
 
 #include <raylib.h>
 #include <vector>
-#include "Projectile.h"
+#include "projectile.h"
 
 enum EnemyState
 {
