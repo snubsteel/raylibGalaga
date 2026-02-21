@@ -1,144 +1,168 @@
 #include "enemy.h"
-#include <cmath> // Include cmath for sin and cos functions
+#include <cmath>
 
-Enemy::Enemy(float x, float y, float speed, Color color)
-    : x(x), y(y), speed(speed), color(color), shootCooldown(2.0f), timeSinceLastShot(0.0f), movementPatternTime(0.0f), state(ENTERING)
+Enemy::Enemy(float spawnX, float spawnY, float formationX, float formationY,
+             float speed, EnemyType type, int formationSlot)
+    : x(spawnX), y(spawnY), spawnX(spawnX), spawnY(spawnY), formationX(formationX), formationY(formationY),
+      speed(speed), attackTimer(0.0f), diveProgress(0.0f), waveOffset(formationSlot * 0.35f),
+      type(type), state(ENTERING), health(1), formationSlot(formationSlot)
 {
-    // Set health based on color
-    if (color.r == RED.r && color.g == RED.g && color.b == RED.b && color.a == RED.a)
+    switch (type)
+    {
+    case DRONE:
+        bodyColor = RED;
         health = 1;
-    else if (color.r == ORANGE.r && color.g == ORANGE.g && color.b == ORANGE.b && color.a == ORANGE.a)
+        attackCooldown = 4.5f;
+        break;
+    case BEE:
+        bodyColor = ORANGE;
         health = 2;
-    else if (color.r == PINK.r && color.g == PINK.g && color.b == PINK.b && color.a == PINK.a)
-        health = 3;
-    else if (color.r == PURPLE.r && color.g == PURPLE.g && color.b == PURPLE.b && color.a == PURPLE.a)
-        health = 3;
+        attackCooldown = 3.8f;
+        break;
+    case BOSS:
+        bodyColor = PURPLE;
+        health = 4;
+        attackCooldown = 3.0f;
+        break;
+    }
 }
 
-void Enemy::Update()
+void Enemy::Update(float formationPhase)
 {
     UpdateState();
-    UpdateMovementPattern();
+    UpdateMovement(formationPhase);
 
-    // Update the time since the last shot
-    timeSinceLastShot += GetFrameTime();
-
-    if (timeSinceLastShot >= shootCooldown && state != ENTERING)
+    attackTimer += GetFrameTime();
+    if (attackTimer >= attackCooldown && state != ENTERING)
     {
         Shoot();
-        timeSinceLastShot = 0.0f; // Reset the timer
+        attackTimer = 0.0f;
     }
 
-    for (auto it = projectiles.begin(); it != projectiles.end();)
-    {
-        it->Update();
-        if (it->IsOffScreen(GetScreenHeight()))
-        {
-            it = projectiles.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
-    }
+    UpdateProjectiles();
 }
 
 void Enemy::UpdateState()
 {
-    float deltaTime = GetFrameTime();
-
-    switch (state)
+    if (state == ENTERING)
     {
-    case ENTERING:
-        y += speed * deltaTime * 60.0f; // Frame rate independent movement
-        if (y > 100)
-        { // Example threshold for entering state
+        const float dx = formationX - x;
+        const float dy = formationY - y;
+        if ((dx * dx + dy * dy) < 64.0f)
+        {
             state = FORMATION;
+            x = formationX;
+            y = formationY;
         }
-        break;
-    case FORMATION:
-        // Stay in formation for a while
-        if (movementPatternTime > 10.0f)
-        { // Longer formation time
-            state = ATTACKING;
-            movementPatternTime = 0.0f;
+        return;
+    }
+
+    if (state == FORMATION)
+    {
+        float diveChance = 0.0005f;
+        if (type == BEE)
+            diveChance = 0.0010f;
+        if (type == BOSS)
+            diveChance = 0.0014f;
+
+        if (GetRandomValue(0, 10000) < static_cast<int>(diveChance * 10000.0f))
+        {
+            state = DIVING;
+            diveProgress = 0.0f;
         }
-        break;
-    case ATTACKING:
-        // More complex attack pattern
-        y += speed * deltaTime * 40.0f; // Slower descent
+        return;
+    }
 
-        // Swinging left and right while attacking
-        x += cos(movementPatternTime * 2.0f) * speed * deltaTime * 100.0f;
-
-        // Ensure enemies don't go off-screen horizontally
-        if (x < 20)
-            x = 20;
-        if (x > GetScreenWidth() - 20)
-            x = GetScreenWidth() - 20;
-        break;
+    if (state == DIVING && y > GetScreenHeight() + 40)
+    {
+        state = ENTERING;
+        x = spawnX;
+        y = spawnY;
     }
 }
 
-void Enemy::UpdateMovementPattern()
+void Enemy::UpdateMovement(float formationPhase)
 {
-    movementPatternTime += GetFrameTime();
+    const float delta = GetFrameTime() * 60.0f;
+
+    if (state == ENTERING)
+    {
+        float t = fminf(1.0f, speed * 0.012f);
+        x += (formationX - x) * t;
+        y += (formationY - y) * t;
+        return;
+    }
+
     if (state == FORMATION)
     {
-        // More complex formation movement
-        x += sin(movementPatternTime * speed) * 1.5f; // Gentle swaying
+        float swayX = sinf(formationPhase + waveOffset) * 22.0f;
+        float swayY = cosf(formationPhase * 0.7f + waveOffset) * 10.0f;
+        x += (formationX + swayX - x) * 0.08f;
+        y += (formationY + swayY - y) * 0.08f;
+        return;
+    }
+
+    diveProgress += 0.035f * (speed / 2.0f);
+    float arc = sinf(diveProgress * 6.28318f + waveOffset);
+
+    float horizontalSpeed = 3.0f;
+    if (type == BEE)
+        horizontalSpeed = 4.5f;
+    if (type == BOSS)
+        horizontalSpeed = 2.5f;
+
+    x += arc * horizontalSpeed * delta;
+    y += speed * 1.5f * delta;
+
+    if (x < 20)
+        x = 20;
+    if (x > GetScreenWidth() - 20)
+        x = GetScreenWidth() - 20;
+}
+
+void Enemy::UpdateProjectiles()
+{
+    for (auto it = projectiles.begin(); it != projectiles.end();)
+    {
+        it->Update();
+        if (it->IsOffScreen(GetScreenHeight()))
+            it = projectiles.erase(it);
+        else
+            ++it;
     }
 }
 
 void Enemy::Draw() const
 {
-    // Draw enemy with half size: 20x20 instead of 40x40
-    DrawRectangle(static_cast<int>(x) - 10, static_cast<int>(y) - 10, 20, 20, color);
+    int size = 20;
+    if (type == BEE)
+        size = 24;
+    if (type == BOSS)
+        size = 30;
 
-    // Draw health indicator
-    for (int i = 0; i < health; i++)
-    {
-        DrawRectangle(static_cast<int>(x) - 8 + i * 8, static_cast<int>(y) - 15, 5, 2, GREEN);
-    }
+    DrawRectangle(static_cast<int>(x) - size / 2, static_cast<int>(y) - size / 2, size, size, bodyColor);
+
+    for (int i = 0; i < health; ++i)
+        DrawRectangle(static_cast<int>(x) - size / 2 + 2 + i * 7, static_cast<int>(y) - size / 2 - 7, 5, 3, GREEN);
 
     for (const auto &projectile : projectiles)
-    {
         projectile.Draw();
-    }
 }
 
 bool Enemy::IsOffScreen(int screenHeight) const
 {
-    return y > screenHeight;
+    return y > screenHeight + 40;
 }
 
 Rectangle Enemy::GetBounds() const
 {
-    // Update bounds to match half size enemy sprite
-    return {x - 10, y - 10, 20, 20};
-}
+    float size = 20.0f;
+    if (type == BEE)
+        size = 24.0f;
+    if (type == BOSS)
+        size = 30.0f;
 
-void Enemy::Shoot()
-{
-    if (color.r == PURPLE.r && color.g == PURPLE.g && color.b == PURPLE.b && color.a == PURPLE.a)
-    {
-        // PURPLE enemies shoot bombs
-        projectiles.emplace_back(x, y + 20, 3.0f, true); // Bombs have a slower speed and are marked as bombs
-    }
-    else
-    {
-        projectiles.emplace_back(x, y + 20, 5.0f); // Shoot downwards with positive speed
-    }
-}
-
-const std::vector<Projectile> &Enemy::GetProjectiles() const
-{
-    return projectiles;
-}
-
-std::vector<Projectile> &Enemy::GetProjectiles()
-{
-    return projectiles;
+    return {x - size / 2.0f, y - size / 2.0f, size, size};
 }
 
 void Enemy::TakeDamage()
@@ -149,4 +173,39 @@ void Enemy::TakeDamage()
 bool Enemy::IsDestroyed() const
 {
     return health <= 0;
+}
+
+int Enemy::GetScoreValue() const
+{
+    if (type == DRONE)
+        return 80;
+    if (type == BEE)
+        return 140;
+    return 260;
+}
+
+void Enemy::Shoot()
+{
+    float projectileSpeed = 5.0f;
+    bool bomb = false;
+
+    if (type == BEE)
+        projectileSpeed = 6.0f;
+    if (type == BOSS)
+    {
+        projectileSpeed = 4.0f;
+        bomb = true;
+    }
+
+    projectiles.emplace_back(x, y + 20, projectileSpeed, bomb);
+}
+
+const std::vector<Projectile> &Enemy::GetProjectiles() const
+{
+    return projectiles;
+}
+
+std::vector<Projectile> &Enemy::GetProjectiles()
+{
+    return projectiles;
 }

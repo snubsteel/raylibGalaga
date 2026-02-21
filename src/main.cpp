@@ -25,11 +25,11 @@ const int MENU_BUTTON_WIDTH = 250;
 const int MENU_BUTTON_HEIGHT = 50;
 
 // Function prototypes
-void SpawnEnemies(std::vector<Enemy> &enemies, int level, int wave);
+void SpawnEnemies(std::vector<Enemy> &enemies, int level, int wave, int screenWidth);
 void HandleGameplay(Player &player, std::vector<Enemy> &enemies, std::vector<Projectile> &enemyProjectiles,
                     std::vector<Star> &stars, int &score, int &level, int &wave, bool &levelStartMusicPlayed,
                     Music &levelStart, GameState &currentState, int screenWidth, int screenHeight,
-                    Texture2D &playerTexture); // Added playerTexture parameter
+                    Texture2D &playerTexture, float &formationPhase);
 void DrawMenu(Vector2 mousePoint, GameState &currentState, std::vector<Star> &stars, int screenWidth, int screenHeight);
 void DrawSettings(Vector2 mousePoint, GameState &currentState, std::vector<Star> &stars,
                   int &resolutionIndex, std::vector<std::pair<int, int>> &resolutionOptions,
@@ -37,7 +37,8 @@ void DrawSettings(Vector2 mousePoint, GameState &currentState, std::vector<Star>
                   float &masterVolume, GameState &previousState); // Added masterVolume and previousState parameters
 void DrawPauseMenu(Vector2 mousePoint, GameState &currentState, int screenWidth, int screenHeight);
 void DrawGameOver(int score, GameState &currentState, Player &player, std::vector<Enemy> &enemies,
-                  std::vector<Projectile> &enemyProjectiles, int &level, int &wave, bool &levelStartMusicPlayed);
+                  std::vector<Projectile> &enemyProjectiles, int &level, int &wave, bool &levelStartMusicPlayed,
+                  float &formationPhase);
 void DrawExitConfirmation(Vector2 mousePoint, GameState &currentState, GameState &previousState, int screenWidth, int screenHeight);
 
 int main()
@@ -92,6 +93,7 @@ int main()
     int wave = 1;
     int score = 0;
     bool levelStartMusicPlayed = false;
+    float formationPhase = 0.0f;
     GameState currentState = MENU;
     GameState previousState = MENU; // New variable to track previous state
 
@@ -103,7 +105,7 @@ int main()
     float masterVolume = 1.0f; // Master volume (0.0f - 1.0f)
 
     // Initialize first wave of enemies
-    SpawnEnemies(enemies, level, wave);
+    SpawnEnemies(enemies, level, wave, VIRTUAL_WIDTH);
 
     // GAME LOOP
     while (!WindowShouldClose())
@@ -203,13 +205,13 @@ int main()
             }
 
             DrawGameOver(score, currentState, player, enemies, enemyProjectiles,
-                         level, wave, levelStartMusicPlayed);
+                         level, wave, levelStartMusicPlayed, formationPhase);
             break;
 
         case PLAYING:
             HandleGameplay(player, enemies, enemyProjectiles, stars, score, level,
                            wave, levelStartMusicPlayed, levelStart, currentState,
-                           screenWidth, screenHeight, playerTexture); // Pass playerTexture
+                           screenWidth, screenHeight, playerTexture, formationPhase);
             break;
         }
 
@@ -238,63 +240,52 @@ int main()
     return 0;
 }
 
-void SpawnEnemies(std::vector<Enemy> &enemies, int level, int wave)
+void SpawnEnemies(std::vector<Enemy> &enemies, int level, int wave, int screenWidth)
 {
-    // Increase number and difficulty of enemies based on level and wave
-    int baseEnemies = 5;
-    int numEnemies = baseEnemies + (level - 1) * 2 + wave;
+    enemies.clear();
 
-    // Cap max enemies to prevent overwhelming the screen
-    numEnemies = fminf(numEnemies, 20);
+    const int columns = 10;
+    const int rows = 3 + ((level - 1) / 2);
+    const int maxRows = rows > 5 ? 5 : rows;
 
-    // Increase enemy speed with levels
-    float baseSpeed = 1.5f;
-    float speedMultiplier = 1.0f + (level * 0.1f);
-    float enemySpeed = baseSpeed * speedMultiplier;
+    const float spacingX = 120.0f;
+    const float spacingY = 95.0f;
+    const float formationCenterX = screenWidth * 0.5f;
+    const float formationTopY = 140.0f;
 
-    // Add formation patterns based on level
-    int columns = 5;
+    const float baseSpeed = 1.6f + (level * 0.12f) + (wave * 0.05f);
 
-    // Create enemies in a grid formation
-    for (int i = 0; i < numEnemies; ++i)
+    int slot = 0;
+    for (int row = 0; row < maxRows; ++row)
     {
-        int row = i / columns;
-        int col = i % columns;
-        float xPos = (GetScreenWidth() / (columns + 1)) * (col + 1);
-        float yPos = -100 - (row * 80); // Start above screen with spacing
+        for (int col = 0; col < columns; ++col)
+        {
+            float formationX = formationCenterX + (col - (columns - 1) / 2.0f) * spacingX;
+            float formationY = formationTopY + row * spacingY;
 
-        // Determine enemy color based on level
-        Color enemyColor;
-        if (level == 1)
-        {
-            enemyColor = (GetRandomValue(0, 1) == 0) ? RED : ORANGE;
-        }
-        else if (level == 2)
-        {
-            int colorChoice = GetRandomValue(0, 2);
-            enemyColor = (colorChoice == 0) ? RED : (colorChoice == 1) ? ORANGE
-                                                                       : PINK;
-        }
-        else
-        {
-            int colorChoice = GetRandomValue(0, 3);
-            enemyColor = (colorChoice == 0) ? RED : (colorChoice == 1) ? ORANGE
-                                                : (colorChoice == 2)   ? PINK
-                                                                       : PURPLE;
-        }
+            float spawnX = (col % 2 == 0) ? -120.0f : static_cast<float>(screenWidth + 120);
+            float spawnY = -80.0f - static_cast<float>(row * 70 + col * 16);
 
-        enemies.emplace_back(xPos, yPos, enemySpeed, enemyColor);
+            EnemyType type = DRONE;
+            if (row >= 3)
+                type = BOSS;
+            else if (row >= 1)
+                type = BEE;
+
+            enemies.emplace_back(spawnX, spawnY, formationX, formationY,
+                                 baseSpeed + row * 0.2f, type, slot++);
+        }
     }
 
-    std::cout << "Spawned " << numEnemies << " enemies for level " << level
-              << ", wave " << wave << " with speed " << enemySpeed << std::endl;
+    std::cout << "Spawned " << enemies.size() << " enemies for level " << level
+              << ", wave " << wave << std::endl;
 }
 
 void HandleGameplay(Player &player, std::vector<Enemy> &enemies, std::vector<Projectile> &enemyProjectiles,
                     std::vector<Star> &stars, int &score, int &level, int &wave, bool &levelStartMusicPlayed,
                     Music &levelStart, GameState &currentState, int screenWidth, int screenHeight,
-                    Texture2D &playerTexture)
-{ // Added playerTexture parameter
+                    Texture2D &playerTexture, float &formationPhase)
+{
 
     // Play level start music if needed
     if (!levelStartMusicPlayed)
@@ -317,9 +308,11 @@ void HandleGameplay(Player &player, std::vector<Enemy> &enemies, std::vector<Pro
         star.Update(screenHeight);
     }
 
+    formationPhase += GetFrameTime() * 1.8f;
+
     for (auto &enemy : enemies)
     {
-        enemy.Update();
+        enemy.Update(formationPhase);
     }
 
     if (!player.IsExploding())
@@ -343,8 +336,9 @@ void HandleGameplay(Player &player, std::vector<Enemy> &enemies, std::vector<Pro
                         enemyProjectiles.insert(enemyProjectiles.end(), enemyProj.begin(), enemyProj.end());
 
                         // Remove the enemy and award points
+                        int enemyScore = et->GetScoreValue();
                         et = enemies.erase(et);
-                        score += 100; // Base score per enemy
+                        score += enemyScore;
                     }
                     else
                     {
@@ -446,13 +440,14 @@ void HandleGameplay(Player &player, std::vector<Enemy> &enemies, std::vector<Pro
         if (allEnemiesGone && !player.IsExploding())
         {
             wave++;
-            if (wave > level + 2)
+            if (wave > 3)
             {
                 level++;
                 wave = 1;
                 levelStartMusicPlayed = false;
             }
-            SpawnEnemies(enemies, level, wave);
+
+            SpawnEnemies(enemies, level, wave, screenWidth);
         }
     }
 
@@ -502,7 +497,7 @@ void HandleGameplay(Player &player, std::vector<Enemy> &enemies, std::vector<Pro
     DrawText(TextFormat("Score: %06i", score), 10, 10, 20, WHITE);
     DrawText(TextFormat("Lives: %i", player.GetLives()), 10, 40, 20, WHITE);
     DrawText(TextFormat("Level: %i", level), 10, 70, 20, WHITE);
-    DrawText(TextFormat("Wave: %i/%i", wave, level + 2), 10, 100, 20, WHITE);
+    DrawText(TextFormat("Wave: %i/3", wave), 10, 100, 20, WHITE);
 }
 
 void DrawMenu(Vector2 mousePoint, GameState &currentState, std::vector<Star> &stars,
@@ -796,7 +791,8 @@ void DrawPauseMenu(Vector2 mousePoint, GameState &currentState, int screenWidth,
 }
 
 void DrawGameOver(int score, GameState &currentState, Player &player, std::vector<Enemy> &enemies,
-                  std::vector<Projectile> &enemyProjectiles, int &level, int &wave, bool &levelStartMusicPlayed)
+                  std::vector<Projectile> &enemyProjectiles, int &level, int &wave, bool &levelStartMusicPlayed,
+                  float &formationPhase)
 {
 
     // Draw game over screen
@@ -819,8 +815,9 @@ void DrawGameOver(int score, GameState &currentState, Player &player, std::vecto
         enemyProjectiles.clear();
         level = 1;
         wave = 1;
-        SpawnEnemies(enemies, level, wave);
+        SpawnEnemies(enemies, level, wave, VIRTUAL_WIDTH);
         levelStartMusicPlayed = false;
+        formationPhase = 0.0f;
         currentState = PLAYING;
     }
 }
