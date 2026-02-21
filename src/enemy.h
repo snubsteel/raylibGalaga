@@ -9,37 +9,60 @@ enum EnemyState
 {
     ENTERING,
     FORMATION,
-    ATTACKING
+    DIVING
+};
+
+enum EnemyType
+{
+    DRONE,
+    BEE,
+    BOSS
 };
 
 class Enemy
 {
 public:
-    Enemy(float x, float y, float speed, Color color); // Updated constructor
-    void Update();
+    Enemy(float spawnX, float spawnY, float formationX, float formationY,
+          float speed, EnemyType type, int formationSlot);
+
+    void Update(float formationPhase);
     void Draw() const;
+
     bool IsOffScreen(int screenHeight) const;
     Rectangle GetBounds() const;
-    void Shoot();
-    const std::vector<Projectile> &GetProjectiles() const;
-    std::vector<Projectile> &GetProjectiles();
+
     void TakeDamage();
     bool IsDestroyed() const;
+    int GetScoreValue() const;
+
+    const std::vector<Projectile> &GetProjectiles() const;
+    std::vector<Projectile> &GetProjectiles();
 
 private:
     float x;
     float y;
+    float spawnX;
+    float spawnY;
+    float formationX;
+    float formationY;
     float speed;
-    Color color;
-    std::vector<Projectile> projectiles;
-    float shootCooldown;       // Time between shots
-    float timeSinceLastShot;   // Time since the last shot
-    float movementPatternTime; // Time for movement pattern
-    EnemyState state;          // Current state of the enemy
-    int health;                // Enemy health, requires multiple hits
+    float attackTimer;
+    float attackCooldown;
+    float diveProgress;
+    float waveOffset;
 
-    void UpdateMovementPattern();
+    EnemyType type;
+    EnemyState state;
+    int health;
+    int formationSlot;
+
+    Color bodyColor;
+    std::vector<Projectile> projectiles;
+
     void UpdateState();
+    void UpdateMovement(float formationPhase);
+    void UpdateProjectiles();
+    void Shoot();
 };
 
 #endif // ENEMY_H
